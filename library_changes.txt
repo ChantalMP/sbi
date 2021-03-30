@@ -1,0 +1,7 @@
+'''
+library changes:
+snpe_base 255, delete test
+simulator called in batches (user_input_checks, 429)
+sbi_utils, 206, delete cpu()
+direct posterior, 555, theta device
+'''

@@ -203,7 +203,7 @@ def sample_posterior_within_prior(
         candidates = (
             posterior_nn.sample(sampling_batch_size, context=x)
             .reshape(sampling_batch_size, -1)
-            .cpu()  # Move to cpu to evaluate under prior.
+            #.cpu()  # Move to cpu to evaluate under prior.
         )
         are_within_prior = within_support(prior, candidates)
         samples = candidates[are_within_prior]
