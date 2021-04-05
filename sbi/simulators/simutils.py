@@ -5,6 +5,7 @@
 import contextlib
 from typing import Callable
 
+import GPUtil
 import joblib
 import torch
 from joblib import Parallel, delayed

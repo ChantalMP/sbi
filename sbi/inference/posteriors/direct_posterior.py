@@ -202,7 +202,7 @@ class DirectPosterior(NeuralPosterior):
             ).cpu()
 
             # Force probability to be zero outside prior support.
-            is_prior_finite = torch.isfinite(self._prior.log_prob(theta))
+            is_prior_finite = torch.isfinite(self._prior.log_prob(theta)).cpu()
 
             masked_log_prob = torch.where(
                 is_prior_finite,

@@ -111,6 +111,7 @@ class PosteriorEstimator(NeuralInference, ABC):
 
         validate_theta_and_x(theta, x)
         self._check_proposal(proposal)
+        self._prior_masks= [None for _ in self._prior_masks]
 
         if (
             proposal is None
@@ -122,6 +123,7 @@ class PosteriorEstimator(NeuralInference, ABC):
             # The `_data_round_index` will later be used to infer if one should train
             # with MLE loss or with atomic loss (see, in `train()`:
             # self._round = max(self._data_round_index))
+
             self._data_round_index.append(0)
             self._prior_masks.append(mask_sims_from_prior(0, theta.size(0)))
         else:
@@ -131,7 +133,13 @@ class PosteriorEstimator(NeuralInference, ABC):
                 self._data_round_index.append(1)
             else:
                 self._data_round_index.append(max(self._data_round_index) + 1)
+
             self._prior_masks.append(mask_sims_from_prior(1, theta.size(0)))
+
+        # Delete old samples as we do not want to use them
+        self._theta_roundwise= [None for _ in self._theta_roundwise]
+        self._x_roundwise = [None for _ in self._x_roundwise]
+        self._proposal_roundwise = [None for _ in self._proposal_roundwise]
 
         self._theta_roundwise.append(theta)
         self._x_roundwise.append(x)
@@ -212,7 +220,8 @@ class PosteriorEstimator(NeuralInference, ABC):
         max_num_epochs = 2 ** 31 - 1 if max_num_epochs is None else max_num_epochs
 
         # Starting index for the training set (1 = discard round-0 samples).
-        start_idx = int(discard_prior_samples and self._round > 0)
+        #start_idx = int(discard_prior_samples and self._round > 0)
+        start_idx = self._round
 
         # For non-atomic loss, we can not reuse samples from prev. rounds as of now.
         if self.use_non_atomic_loss:
