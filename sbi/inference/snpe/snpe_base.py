@@ -112,7 +112,6 @@ class PosteriorEstimator(NeuralInference, ABC):
         validate_theta_and_x(theta, x)
         self._check_proposal(proposal)
         self._prior_masks= [None for _ in self._prior_masks]
-
         if (
             proposal is None
             or proposal is self._prior
@@ -123,7 +122,6 @@ class PosteriorEstimator(NeuralInference, ABC):
             # The `_data_round_index` will later be used to infer if one should train
             # with MLE loss or with atomic loss (see, in `train()`:
             # self._round = max(self._data_round_index))
-
             self._data_round_index.append(0)
             self._prior_masks.append(mask_sims_from_prior(0, theta.size(0)))
         else:
@@ -133,7 +131,6 @@ class PosteriorEstimator(NeuralInference, ABC):
                 self._data_round_index.append(1)
             else:
                 self._data_round_index.append(max(self._data_round_index) + 1)
-
             self._prior_masks.append(mask_sims_from_prior(1, theta.size(0)))
 
         # Delete old samples as we do not want to use them
@@ -288,15 +285,17 @@ class PosteriorEstimator(NeuralInference, ABC):
                     batch[1].to(self._device),
                     batch[2].to(self._device),
                 )
-
-                batch_loss = torch.mean(
-                    self._loss(
+                loss = self._loss(
                         theta_batch,
                         x_batch,
                         masks_batch,
                         proposal,
                         calibration_kernel,
-                    )
+                )
+                if loss is None:
+                    continue
+                batch_loss = torch.mean(
+                    loss
                 )
                 batch_loss.backward()
                 if clip_max_norm is not None:
@@ -318,14 +317,17 @@ class PosteriorEstimator(NeuralInference, ABC):
                         batch[1].to(self._device),
                         batch[2].to(self._device),
                     )
-                    # Take negative loss here to get validation log_prob.
-                    batch_log_prob = -self._loss(
+                    loss = self._loss(
                         theta_batch,
                         x_batch,
                         masks_batch,
                         proposal,
                         calibration_kernel,
                     )
+                    if loss is None:
+                        continue
+                    # Take negative loss here to get validation log_prob.
+                    batch_log_prob = -loss
                     log_prob_sum += batch_log_prob.sum().item()
 
             # Take mean over all validation samples.
@@ -461,6 +463,8 @@ class PosteriorEstimator(NeuralInference, ABC):
         else:
             log_prob = self._log_prob_proposal_posterior(theta, x, masks, proposal)
 
+        if log_prob is None:
+            return None
         return -(calibration_kernel(x) * log_prob)
 
     def _check_proposal(self, proposal):

@@ -24,6 +24,7 @@ from sbi.utils import (
     repeat_rows,
 )
 
+from datetime import datetime
 
 class SNPE_C(PosteriorEstimator):
     def __init__(
@@ -414,6 +415,7 @@ class SNPE_C(PosteriorEstimator):
         norm_logits_d = logits_d - torch.logsumexp(logits_d, dim=-1, keepdim=True)
 
         # z-score theta if it z-scoring had been requested.
+        theta_old = torch.clone(theta)
         theta = self._maybe_z_score_theta(theta)
 
         # Compute the MoG parameters of the proposal posterior.
@@ -433,9 +435,19 @@ class SNPE_C(PosteriorEstimator):
             m_pp,
             prec_pp,
         )
-        self._assert_all_finite(log_prob_proposal_posterior, "proposal posterior eval")
+        if torch.isfinite(log_prob_proposal_posterior).all():
+            return log_prob_proposal_posterior
+        else:
 
-        return log_prob_proposal_posterior
+            # datetime object containing current date and time
+            now = datetime.now()
+            dt_string = now.strftime("%d_%m_%Y_%H_%M_%S")
+            print("Error: Encountered NaN/Infs in posterior loss")
+            torch.save(theta, f'tumor_surrogate_pytorch/neural_inference/error/theta{dt_string}.pt')
+            torch.save(theta_old, f'tumor_surrogate_pytorch/neural_inference/error/theta_old{dt_string}.pt')
+            torch.save(x, f'tumor_surrogate_pytorch/neural_inference/error/x{dt_string}.pt')
+            torch.save(encoded_x, f'tumor_surrogate_pytorch/neural_inference/error/encoded_x{dt_string}.pt')
+            return None
 
     def _automatic_posterior_transformation(
         self,
@@ -691,7 +703,7 @@ def _mog_log_prob(
 
     # Split up evaluation into parts.
     weights = logits_pp - torch.logsumexp(logits_pp, dim=-1, keepdim=True)
-    constant = -(output_dim / 2.0) * torch.log(torch.tensor([2 * pi]))
+    constant = -(output_dim / 2.0) * torch.log(torch.tensor([2 * pi],device=torch.device('cuda')))
     log_det = 0.5 * torch.log(torch.det(precisions_pp))
     theta_minus_mean = theta.expand_as(means_pp) - means_pp
     exponent = -0.5 * batched_mixture_vmv(precisions_pp, theta_minus_mean)
